@@ -203,10 +203,11 @@
             <label class="control-label" for="modelSelect">Evaluation Model</label>
             <select id="modelSelect" class="select-input">
                 <option value="all">⚡ Model Arena (Benchmark All Models in Parallel)</option>
-                <option value="ensemble">✨ Hybrid Late-Fusion Ensemble (CNN + SVM + RF)</option>
+                <option value="ensemble">✨ Hybrid Late-Fusion Ensemble (CNN + SVM + RF + LSTM)</option>
+                <option value="lstm">🔁 Recurrent Neural Network (LSTM - Temporal MFCC)</option>
+                <option value="cnn">🖼️ 2D Mel-Spectrogram CNN (Deep Learning)</option>
                 <option value="rf">🌲 Random Forest (100 Decision Trees)</option>
                 <option value="svm">🎯 SVM (RBF Kernel) — 40 MFCC Averages</option>
-                <option value="cnn">🖼️ 2D Mel-Spectrogram CNN (Deep Learning)</option>
                 <option value="lr">📊 Logistic Regression (Linear Softmax Baseline)</option>
             </select>
         </div>

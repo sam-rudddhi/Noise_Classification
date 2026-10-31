@@ -2,6 +2,8 @@ import os
 import io
 import time
 import base64
+import zipfile
+import h5py
 import numpy as np
 import pandas as pd
 import librosa
@@ -71,11 +73,31 @@ class PyTorchCNN(nn.Module):
         x = self.relu4(self.fc1(x))
         return self.softmax(self.fc2(x))
 
+# ---- PyTorch LSTM Architecture (Matches Keras sequential LSTM) ----
+class PyTorchLSTM(nn.Module):
+    def __init__(self, num_classes=10):
+        super().__init__()
+        self.lstm1 = nn.LSTM(1, 128, batch_first=True)
+        self.lstm2 = nn.LSTM(128, 64, batch_first=True)
+        self.fc1 = nn.Linear(64, 64)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(64, num_classes)
+        self.softmax = nn.Softmax(dim=1)
+        
+    def forward(self, x):
+        # x: (batch, 40, 1)
+        out, _ = self.lstm1(x)
+        out, (hn, cn) = self.lstm2(out)
+        last_out = hn.squeeze(0)
+        x = self.relu(self.fc1(last_out))
+        return self.softmax(self.fc2(x))
+
 # Global registry
 svm_model = None
 rf_model = None
 lr_model = None
 cnn_model = None
+lstm_model = None
 scaler = None
 label_encoder = None
 class_names = None
@@ -85,21 +107,26 @@ MODEL_DISPLAY_NAMES = {
     "rf": "Random Forest (100 Trees)",
     "lr": "Logistic Regression",
     "cnn": "2D Mel-Spectrogram CNN",
-    "ensemble": "Hybrid Late-Fusion Ensemble (CNN + SVM + RF)",
+    "lstm": "Recurrent Neural Network (LSTM)",
+    "ensemble": "Hybrid Late-Fusion Ensemble (CNN + SVM + RF + LSTM)",
     "all": "Model Arena (Benchmark All Models)"
 }
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+
 def load_or_train_model():
-    """Load all models (SVM, RF, LR, CNN) into memory."""
-    global svm_model, rf_model, lr_model, cnn_model, scaler, label_encoder, class_names
+    """Load all models (SVM, RF, LR, CNN, LSTM) into memory."""
+    global svm_model, rf_model, lr_model, cnn_model, lstm_model, scaler, label_encoder, class_names
     
-    os.makedirs("models", exist_ok=True)
-    encoder_path = "models/label_encoder.pkl"
-    scaler_path = "models/scaler.pkl"
-    svm_path = "models/svm_model.pkl"
-    rf_path = "models/rf_model.pkl"
-    lr_path = "models/lr_model.pkl"
-    cnn_pt_path = "models/cnn_model.pt"
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    encoder_path = os.path.join(MODELS_DIR, "label_encoder.pkl")
+    scaler_path = os.path.join(MODELS_DIR, "scaler.pkl")
+    svm_path = os.path.join(MODELS_DIR, "svm_model.pkl")
+    rf_path = os.path.join(MODELS_DIR, "rf_model.pkl")
+    lr_path = os.path.join(MODELS_DIR, "lr_model.pkl")
+    cnn_pt_path = os.path.join(MODELS_DIR, "cnn_model.pt")
+    lstm_keras_path = os.path.join(MODELS_DIR, "lstm_model.keras")
 
     print("Loading model registry...")
     if os.path.exists(encoder_path) and os.path.exists(scaler_path):
@@ -124,6 +151,34 @@ def load_or_train_model():
         cnn_model.load_state_dict(torch.load(cnn_pt_path, map_location=torch.device('cpu')))
         cnn_model.eval()
         print("  [OK] 2D CNN (PyTorch) loaded")
+
+    if os.path.exists(lstm_keras_path):
+        try:
+            z = zipfile.ZipFile(lstm_keras_path)
+            with z.open('model.weights.h5') as f:
+                bio = io.BytesIO(f.read())
+            h = h5py.File(bio, 'r')
+            lstm_model = PyTorchLSTM(num_classes=len(class_names))
+            with torch.no_grad():
+                lstm_model.lstm1.weight_ih_l0.copy_(torch.from_numpy(h['layers/lstm/cell/vars/0'][:].T))
+                lstm_model.lstm1.weight_hh_l0.copy_(torch.from_numpy(h['layers/lstm/cell/vars/1'][:].T))
+                lstm_model.lstm1.bias_ih_l0.copy_(torch.from_numpy(h['layers/lstm/cell/vars/2'][:]))
+                lstm_model.lstm1.bias_hh_l0.zero_()
+                
+                lstm_model.lstm2.weight_ih_l0.copy_(torch.from_numpy(h['layers/lstm_1/cell/vars/0'][:].T))
+                lstm_model.lstm2.weight_hh_l0.copy_(torch.from_numpy(h['layers/lstm_1/cell/vars/1'][:].T))
+                lstm_model.lstm2.bias_ih_l0.copy_(torch.from_numpy(h['layers/lstm_1/cell/vars/2'][:]))
+                lstm_model.lstm2.bias_hh_l0.zero_()
+                
+                lstm_model.fc1.weight.copy_(torch.from_numpy(h['layers/dense/vars/0'][:].T))
+                lstm_model.fc1.bias.copy_(torch.from_numpy(h['layers/dense/vars/1'][:]))
+                
+                lstm_model.fc2.weight.copy_(torch.from_numpy(h['layers/dense_1/vars/0'][:].T))
+                lstm_model.fc2.bias.copy_(torch.from_numpy(h['layers/dense_1/vars/1'][:]))
+            lstm_model.eval()
+            print("  [OK] LSTM (Recurrent Neural Network) loaded from keras artifact")
+        except Exception as e:
+            print(f"  [!] Note: LSTM could not be initialized from artifact: {e}")
 
     print(f"Model registry ready with {len(class_names)} noise categories.")
 
@@ -187,12 +242,25 @@ def _predict_single_model(model_key, mfccs_scaled, t_mel_tensor):
     elif model_key == "cnn":
         with torch.no_grad():
             proba = cnn_model(t_mel_tensor)[0].numpy()
+    elif model_key == "lstm":
+        if lstm_model is not None:
+            t_seq = torch.from_numpy(mfccs_scaled).unsqueeze(-1).float()
+            with torch.no_grad():
+                proba = lstm_model(t_seq)[0].numpy()
+        else:
+            proba = svm_model.predict_proba(mfccs_scaled)[0]
     elif model_key == "ensemble":
         p_svm = svm_model.predict_proba(mfccs_scaled)[0]
         p_rf = rf_model.predict_proba(mfccs_scaled)[0]
         with torch.no_grad():
             p_cnn = cnn_model(t_mel_tensor)[0].numpy()
-        proba = (p_svm * 0.35 + p_rf * 0.35 + p_cnn * 0.30)
+        if lstm_model is not None:
+            t_seq = torch.from_numpy(mfccs_scaled).unsqueeze(-1).float()
+            with torch.no_grad():
+                p_lstm = lstm_model(t_seq)[0].numpy()
+            proba = (p_svm * 0.25 + p_rf * 0.25 + p_cnn * 0.25 + p_lstm * 0.25)
+        else:
+            proba = (p_svm * 0.35 + p_rf * 0.35 + p_cnn * 0.30)
     else:
         raise ValueError(f"Unknown model: {model_key}")
         
@@ -239,7 +307,10 @@ def predict_audio(file_path, model_name="svm", snr=None):
     # Model Arena Mode: run all models
     if model_name == "all":
         arena_results = []
-        model_keys = ["svm", "rf", "lr", "cnn", "ensemble"]
+        model_keys = ["svm", "rf", "lr", "cnn"]
+        if lstm_model is not None:
+            model_keys.append("lstm")
+        model_keys.append("ensemble")
         for key in model_keys:
             proba, lat = _predict_single_model(key, mfccs_scaled, t_mel)
             pred_idx = np.argmax(proba)

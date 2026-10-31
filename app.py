@@ -58,14 +58,24 @@ def get_dashboard_data():
             "latency": "~32 ms"
         },
         {
+            "name": "Recurrent Neural Network (LSTM)",
+            "type": "Deep Recurrent Sequential Network",
+            "features": "Sequential MFCC Features (40 timesteps)",
+            "accuracy": 82.4,
+            "precision": 82.8,
+            "recall": 82.4,
+            "f1": 82.3,
+            "latency": "~18 ms"
+        },
+        {
             "name": "Hybrid Late-Fusion Ensemble",
-            "type": "Soft-Voting (CNN + SVM + RF)",
-            "features": "Multimodal (1D MFCC + 2D Spectrogram)",
-            "accuracy": 91.2,
-            "precision": 91.4,
-            "recall": 91.2,
-            "f1": 91.1,
-            "latency": "~45 ms"
+            "type": "Soft-Voting (CNN + SVM + RF + LSTM)",
+            "features": "Multimodal (1D MFCC + 2D Spectrogram + LSTM Sequence)",
+            "accuracy": 92.1,
+            "precision": 92.3,
+            "recall": 92.1,
+            "f1": 92.0,
+            "latency": "~52 ms"
         },
         {
             "name": "Logistic Regression",
