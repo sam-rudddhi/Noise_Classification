@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}UrbanSound AI{% endblock %}</title>
+    <title>{% block title %}UrbanSound AI — Acoustic Research{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <style>
@@ -58,7 +58,7 @@
         footer span { color: #6366f1; }
 
         /* ---- SHARED COMPONENTS ---- */
-        .container { max-width: 1000px; margin: 0 auto; padding: 0 2rem; }
+        .container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
         .page-header { text-align: center; padding: 3rem 2rem 2rem; }
         .page-header h2 {
             font-size: 2.2rem;
@@ -101,18 +101,19 @@
 <body>
 
 <nav>
-    <a href="/" class="nav-brand">🔊 UrbanSound AI</a>
+    <a href="/" class="nav-brand">🔊 UrbanSound AI <span style="font-size:0.75rem; background:#312e81; color:#a5b4fc; padding:2px 8px; border-radius:12px; margin-left:6px;">Research Edition</span></a>
     <div class="nav-links">
         <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Home</a>
-        <a href="/classifier" {% if request.path == '/classifier' %}class="active"{% endif %}>Classifier</a>
-        <a href="/dashboard" {% if request.path == '/dashboard' %}class="active"{% endif %}>Dashboard</a>
+        <a href="/classifier" {% if request.path == '/classifier' %}class="active"{% endif %}>Classifier & Arena</a>
+        <a href="/dashboard" {% if request.path == '/dashboard' %}class="active"{% endif %}>Benchmark Dashboard</a>
+        <a href="/methodology" {% if request.path == '/methodology' %}class="active"{% endif %}>Methodology Flowchart</a>
     </div>
 </nav>
 
 {% block content %}{% endblock %}
 
 <footer>
-    <p>Urban Sound Classification · Built with <span>Python, Flask, Librosa & Scikit-learn</span> · UrbanSound8K Dataset</p>
+    <p>Environmental Noise Analysis & Sound Classification · Powered by <span>PyTorch, Scikit-learn, Librosa & Flask</span> · UrbanSound8K Dataset</p>
 </footer>
 
 {% block extra_scripts %}{% endblock %}

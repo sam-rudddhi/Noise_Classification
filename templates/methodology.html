@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}UrbanSound AI — Research Methodology & Flowchart{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .methodology-container { max-width: 1040px; margin: 0 auto; padding: 0 2rem 4rem; }
+
+    .step-card {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 1.8rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+    .step-num {
+        display: inline-block;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 800;
+        font-size: 0.85rem;
+        margin-bottom: 0.8rem;
+    }
+    .step-card h3 { font-size: 1.25rem; color: #f8fafc; margin-bottom: 0.6rem; }
+    .step-card p { color: #94a3b8; font-size: 0.92rem; line-height: 1.6; }
+
+    .flowchart-box {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        text-align: center;
+    }
+    .flow-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin: 0.8rem 0;
+    }
+    .flow-node {
+        background: #1e293b;
+        border: 1px solid #4f46e5;
+        border-radius: 10px;
+        padding: 0.8rem 1.2rem;
+        color: #e2e8f0;
+        font-size: 0.88rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .flow-arrow { color: #818cf8; font-size: 1.4rem; font-weight: 800; }
+
+    .class-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+        margin-top: 1rem;
+    }
+    .class-item {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        font-size: 0.88rem;
+    }
+    .class-item .emoji { font-size: 1.4rem; }
+    .class-item .title { font-weight: 600; color: #e2e8f0; }
+    .class-item .sub { color: #64748b; font-size: 0.78rem; margin-top: 2px; }
+
+    .table-spec { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.88rem; }
+    .table-spec th { text-align: left; color: #64748b; padding: 0.6rem 0.8rem; border-bottom: 1px solid #334155; font-size: 0.78rem; text-transform: uppercase; }
+    .table-spec td { padding: 0.7rem 0.8rem; border-bottom: 1px solid #1e293b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Research Methodology & Architecture Flowchart</h2>
+    <p>Complete experimental design, signal processing specifications, and cross-validation framework</p>
+</div>
+
+<div class="methodology-container">
+
+    <!-- Overall Architecture Flowchart -->
+    <div class="step-card">
+        <span class="step-num">FLOWCHART</span>
+        <h3>End-to-End Experimental Architecture</h3>
+        <p>From raw acoustic recordings to dual-domain representation, multi-model cross-validation, and hybrid late fusion:</p>
+        
+        <div class="flowchart-box">
+            <div class="flow-row">
+                <div class="flow-node" style="border-color:#38bdf8;">Raw Audio Acquisition<br/><span style="font-size:0.75rem; color:#94a3b8;">UrbanSound8K (8,732 clips)</span></div>
+                <div class="flow-arrow">➔</div>
+                <div class="flow-node" style="border-color:#818cf8;">Signal Normalization<br/><span style="font-size:0.75rem; color:#94a3b8;">22.05 kHz · 4.0s Window</span></div>
+                <div class="flow-arrow">➔</div>
+                <div class="flow-node" style="border-color:#c084fc;">Acoustic Preprocessing<br/><span style="font-size:0.75rem; color:#94a3b8;">STFT & Mel Filterbank</span></div>
+            </div>
+
+            <div style="color:#6366f1; font-size:1.6rem; margin:0.4rem 0;">⬇ Dual Feature Extraction Pipeline ⬇</div>
+
+            <div class="flow-row">
+                <div class="flow-node" style="border-color:#10b981; max-width:320px;">
+                    <strong>1D Statistical Representation</strong><br/>
+                    <span style="font-size:0.78rem; color:#94a3b8;">40 MFCC Coefficients (Mean & Variance) + ZCR + RMS Energy</span>
+                    <div style="margin-top:6px; color:#34d399; font-size:0.8rem;">➔ Evaluated with: SVM, RF, LR</div>
+                </div>
+                <div style="font-size:1.5rem; color:#64748b;">vs</div>
+                <div class="flow-node" style="border-color:#ec4899; max-width:320px;">
+                    <strong>2D Time-Frequency Representation</strong><br/>
+                    <span style="font-size:0.78rem; color:#94a3b8;">128x128 Log-Mel Spectrogram (dB Scale Normalized)</span>
+                    <div style="margin-top:6px; color:#f472b6; font-size:0.8rem;">➔ Evaluated with: 2D CNN</div>
+                </div>
+            </div>
+
+            <div style="color:#6366f1; font-size:1.6rem; margin:0.4rem 0;">⬇ Classification & Consensus ⬇</div>
+
+            <div class="flow-row">
+                <div class="flow-node" style="border-color:#f59e0b; background:#1e1b4b;">
+                    <strong>Hybrid Late-Fusion Ensemble (Soft Voting)</strong><br/>
+                    <span style="font-size:0.8rem; color:#cbd5e1;">$P_{\text{final}} = 0.35 \cdot P_{\text{SVM}} + 0.35 \cdot P_{\text{RF}} + 0.30 \cdot P_{\text{CNN}}$</span>
+                </div>
+                <div class="flow-arrow">➔</div>
+                <div class="flow-node" style="border-color:#10b981;">
+                    <strong>Validation & Stress Testing</strong><br/>
+                    <span style="font-size:0.78rem; color:#94a3b8;">10-Fold CV + Calibrated SNR Robustness</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 1: Dataset Characteristics -->
+    <div class="step-card">
+        <span class="step-num">STAGE 1</span>
+        <h3>UrbanSound8K Dataset & Acoustic Taxonomy</h3>
+        <p>The UrbanSound8K dataset comprises 8,732 labeled audio excerpts ($\leq 4.0\text{ seconds}$) partitioned across 10 balanced folds. The 10 categories represent urban environmental noise scenarios:</p>
+
+        <div class="class-grid">
+            <div class="class-item">
+                <span class="emoji">❄️</span>
+                <div>
+                    <div class="title">Air Conditioner</div>
+                    <div class="sub">Stationary mechanical hum; continuous low-to-mid frequency resonance.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">📯</span>
+                <div>
+                    <div class="title">Car Horn</div>
+                    <div class="sub">Harmonic alert pulse; dominant spectral peaks between 2–4 kHz.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">👧</span>
+                <div>
+                    <div class="title">Children Playing</div>
+                    <div class="sub">Dynamic vocal formants; highly irregular polyphonic signals.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">🐕</span>
+                <div>
+                    <div class="title">Dog Bark</div>
+                    <div class="sub">Impulsive biological acoustic transients; rapid attack and decay.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">🔧</span>
+                <div>
+                    <div class="title">Drilling</div>
+                    <div class="sub">High-frequency mechanical friction noise; strong harmonic sidebands.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">🚗</span>
+                <div>
+                    <div class="title">Engine Idling</div>
+                    <div class="sub">Low-frequency fundamental combustion pulses (sub-250 Hz dominance).</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">💥</span>
+                <div>
+                    <div class="title">Gun Shot</div>
+                    <div class="sub">Instantaneous high-energy acoustic blast wave; steep impulse onset.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">🔨</span>
+                <div>
+                    <div class="title">Jackhammer</div>
+                    <div class="sub">Periodic high-impact percussive transients (10–25 Hz cycle).</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">🚨</span>
+                <div>
+                    <div class="title">Siren</div>
+                    <div class="sub">Frequency-modulated periodic sweep with strong acoustic harmonics.</div>
+                </div>
+            </div>
+            <div class="class-item">
+                <span class="emoji">🎵</span>
+                <div>
+                    <div class="title">Street Music</div>
+                    <div class="sub">Complex polyphonic spectral mixture of instrumental melodies.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Signal Processing & Extraction -->
+    <div class="step-card">
+        <span class="step-num">STAGE 2</span>
+        <h3>Acoustic Preprocessing & Feature Extraction</h3>
+        <p>Acoustic signals are loaded via <code>librosa</code> at a standardized sampling rate of $f_s = 22,050\text{ Hz}$:</p>
+
+        <table class="table-spec">
+            <thead>
+                <tr>
+                    <th>Parameter / Feature</th>
+                    <th>Configuration Value</th>
+                    <th>Physical / Acoustic Justification</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Sampling Rate ($f_s$)</strong></td>
+                    <td>22,050 Hz</td>
+                    <td>Satisfies Nyquist criterion up to 11.025 kHz, covering human hearing and critical urban acoustics.</td>
+                </tr>
+                <tr>
+                    <td><strong>STFT Window & Hop Size</strong></td>
+                    <td>$N_{\text{fft}} = 2048$, $\text{Hop} = 512$</td>
+                    <td>Provides 23 ms time resolution and 10.7 Hz frequency resolution.</td>
+                </tr>
+                <tr>
+                    <td><strong>Mel Filterbank</strong></td>
+                    <td>$M = 128$ filters (0 to 11 kHz)</td>
+                    <td>Non-linear frequency scaling approximating the human cochlear critical band perceptual scale.</td>
+                </tr>
+                <tr>
+                    <td><strong>MFCC Dimension</strong></td>
+                    <td>40 Coefficients</td>
+                    <td>DCT-II decorrelation of log-filterbank energies, capturing spectral envelope and formant contours.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Step 3: Noise Robustness Protocol -->
+    <div class="step-card">
+        <span class="step-num">STAGE 3</span>
+        <h3>Additive Noise Robustness & SNR Simulation Protocol</h3>
+        <p>To evaluate model reliability under harsh acoustic interference, calibrated additive white Gaussian noise (AWGN) is injected dynamically according to specified Signal-to-Noise Ratios (SNR):</p>
+        <p style="margin-top:0.5rem; font-family:monospace; background:#0f172a; padding:0.8rem; border-radius:8px; color:#a5b4fc;">
+            $P_{\text{signal}} = \frac{1}{N}\sum_{i=1}^N y_i^2, \quad P_{\text{noise}} = \frac{P_{\text{signal}}}{10^{\text{SNR}_{\text{dB}} / 10}}, \quad y_{\text{noisy}} = y + \mathcal{N}(0, \sqrt{P_{\text{noise}}})$
+        </p>
+        <p style="margin-top:0.8rem;">
+            Testing across $+20\text{ dB}$, $+10\text{ dB}$, $0\text{ dB}$, and $-5\text{ dB}$ reveals the breakdown threshold for each acoustic modeling paradigm.
+        </p>
+    </div>
+
+</div>
+{% endblock %}

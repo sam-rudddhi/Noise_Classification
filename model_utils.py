@@ -1,17 +1,19 @@
-import numba_fallback
-import librosa
+import os
+import io
+import time
+import base64
 import numpy as np
 import pandas as pd
-from sklearn.svm import SVC
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-import joblib
-import os
+import librosa
+import librosa.display
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import librosa.display
-import io
-import base64
+import joblib
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 # ---- Class info ----
 CLASS_EMOJIS = {
@@ -28,129 +30,185 @@ CLASS_EMOJIS = {
 }
 
 CLASS_DESCRIPTIONS = {
-    "air_conditioner": "A continuous mechanical hum from HVAC systems",
-    "car_horn": "Short sharp beeping from vehicle horns",
-    "children_playing": "Irregular voices and activity sounds from kids",
-    "dog_bark": "Sharp impulsive sounds from barking dogs",
-    "drilling": "Repetitive mechanical drilling noise",
-    "engine_idling": "Low continuous rumble of a running engine",
-    "gun_shot": "Single sharp high-energy impulse sound",
-    "jackhammer": "Repetitive heavy impact drilling sound",
-    "siren": "Rising and falling wail from emergency vehicles",
-    "street_music": "Mixed musical sounds from street performers"
+    "air_conditioner": "Continuous mechanical hum from HVAC systems",
+    "car_horn": "Short sharp acoustic pulse from vehicle warning horns",
+    "children_playing": "Irregular voices and multi-speaker activity sounds",
+    "dog_bark": "Sharp impulsive acoustic transients from canine vocalizations",
+    "drilling": "High-frequency repetitive mechanical friction noise",
+    "engine_idling": "Low-frequency stationary rumble of internal combustion engines",
+    "gun_shot": "High-energy instantaneous blast wave and decay envelope",
+    "jackhammer": "Low-frequency repetitive heavy impact percussion sounds",
+    "siren": "Harmonically rich frequency-modulated emergency vehicle signal",
+    "street_music": "Polyrhythmic acoustic mixture of melodies and percussions"
 }
 
-# Global variables
+# ---- PyTorch 2D CNN Architecture ----
+class PyTorchCNN(nn.Module):
+    def __init__(self, num_classes=10):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 32, 3)
+        self.relu1 = nn.ReLU()
+        self.pool1 = nn.MaxPool2d(2, 2)
+        
+        self.conv2 = nn.Conv2d(32, 64, 3)
+        self.relu2 = nn.ReLU()
+        self.pool2 = nn.MaxPool2d(2, 2)
+        
+        self.conv3 = nn.Conv2d(64, 128, 3)
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool2d(2, 2)
+        
+        self.fc1 = nn.Linear(25088, 256)
+        self.relu4 = nn.ReLU()
+        self.fc2 = nn.Linear(256, num_classes)
+        self.softmax = nn.Softmax(dim=1)
+        
+    def forward(self, x):
+        x = self.pool1(self.relu1(self.conv1(x)))
+        x = self.pool2(self.relu2(self.conv2(x)))
+        x = self.pool3(self.relu3(self.conv3(x)))
+        x = x.permute(0, 2, 3, 1).reshape(x.size(0), -1)
+        x = self.relu4(self.fc1(x))
+        return self.softmax(self.fc2(x))
+
+# Global registry
 svm_model = None
-lstm_model = None
+rf_model = None
+lr_model = None
+cnn_model = None
 scaler = None
 label_encoder = None
 class_names = None
-LSTM_MFCC_FRAMES = 174
+
+MODEL_DISPLAY_NAMES = {
+    "svm": "Support Vector Machine (RBF)",
+    "rf": "Random Forest (100 Trees)",
+    "lr": "Logistic Regression",
+    "cnn": "2D Mel-Spectrogram CNN",
+    "ensemble": "Hybrid Late-Fusion Ensemble (CNN + SVM + RF)",
+    "all": "Model Arena (Benchmark All Models)"
+}
 
 def load_or_train_model():
-    """Load saved model if exists, otherwise train from scratch"""
-    global svm_model, lstm_model, scaler, label_encoder, class_names
-
-    model_path = "models/svm_model.pkl"
-    lstm_model_path = "models/lstm_model.keras"
-    scaler_path = "models/scaler.pkl"
+    """Load all models (SVM, RF, LR, CNN) into memory."""
+    global svm_model, rf_model, lr_model, cnn_model, scaler, label_encoder, class_names
+    
+    os.makedirs("models", exist_ok=True)
     encoder_path = "models/label_encoder.pkl"
+    scaler_path = "models/scaler.pkl"
+    svm_path = "models/svm_model.pkl"
+    rf_path = "models/rf_model.pkl"
+    lr_path = "models/lr_model.pkl"
+    cnn_pt_path = "models/cnn_model.pt"
 
-    if os.path.exists(model_path):
-        print("Loading saved model...")
-        svm_model = joblib.load(model_path)
-        scaler = joblib.load(scaler_path)
+    print("Loading model registry...")
+    if os.path.exists(encoder_path) and os.path.exists(scaler_path):
         label_encoder = joblib.load(encoder_path)
-        class_names = label_encoder.classes_
-        print("Model loaded!")
+        scaler = joblib.load(scaler_path)
+        class_names = list(label_encoder.classes_)
     else:
-        print("Training model for first time... (takes 2-3 min)")
-        df = pd.read_csv("features_mfcc.csv")
-        X = df.drop(columns=["label", "fold"]).values
-        y = df["label"].values
+        raise FileNotFoundError("Preprocessor artifacts missing from models/")
 
-        label_encoder = LabelEncoder()
-        y_encoded = label_encoder.fit_transform(y)
-        class_names = label_encoder.classes_
+    if os.path.exists(svm_path):
+        svm_model = joblib.load(svm_path)
+        print("  [OK] SVM loaded")
+    if os.path.exists(rf_path):
+        rf_model = joblib.load(rf_path)
+        print("  [OK] Random Forest loaded")
+    if os.path.exists(lr_path):
+        lr_model = joblib.load(lr_path)
+        print("  [OK] Logistic Regression loaded")
+        
+    if os.path.exists(cnn_pt_path):
+        cnn_model = PyTorchCNN(num_classes=len(class_names))
+        cnn_model.load_state_dict(torch.load(cnn_pt_path, map_location=torch.device('cpu')))
+        cnn_model.eval()
+        print("  [OK] 2D CNN (PyTorch) loaded")
 
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+    print(f"Model registry ready with {len(class_names)} noise categories.")
 
-        svm_model = SVC(kernel="rbf", probability=True, random_state=42)
-        svm_model.fit(X_scaled, y_encoded)
+def inject_noise(y, snr_db):
+    """Simulate additive acoustic background noise at a specific SNR (dB)."""
+    if snr_db is None or str(snr_db).lower() in ["clean", "none", ""]:
+        return y, None
+    try:
+        snr = float(snr_db)
+    except ValueError:
+        return y, None
+        
+    signal_power = np.mean(y ** 2)
+    if signal_power <= 1e-12:
+        return y, snr
+        
+    noise_power = signal_power / (10.0 ** (snr / 10.0))
+    noise = np.random.normal(0, np.sqrt(noise_power), len(y))
+    return y + noise, snr
 
-        # Save for next time
-        joblib.dump(svm_model, model_path)
-        joblib.dump(scaler, scaler_path)
-        joblib.dump(label_encoder, encoder_path)
-        print("Model trained and saved!")
+def extract_features(y, sr):
+    """Extract both 1D statistical MFCCs and 2D Mel-Spectrogram."""
+    # 1. 1D MFCCs for Traditional Models
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
+    mfccs_mean = np.mean(mfccs, axis=1).reshape(1, -1)
+    mfccs_scaled = scaler.transform(mfccs_mean)
+    
+    # 2. 2D Normalized Mel-Spectrogram for CNN
+    mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
+    mel_db = librosa.power_to_db(mel, ref=np.max)
+    t_mel = torch.from_numpy(mel_db).unsqueeze(0).unsqueeze(0).float()
+    t_resized = F.interpolate(t_mel, size=(128, 128), mode='bilinear', align_corners=False)
+    t_norm = (t_resized - t_resized.min()) / (t_resized.max() - t_resized.min() + 1e-8)
+    
+    # 3. Acoustic Signal Telemetry
+    rms = float(np.sqrt(np.mean(y ** 2)))
+    zcr = float(np.mean(librosa.feature.zero_crossing_rate(y)))
+    sc = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+    s_rolloff = float(np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr)))
+    
+    telemetry = {
+        "rms": round(rms, 4),
+        "zcr": round(zcr, 4),
+        "spectral_centroid": round(sc, 1),
+        "spectral_rolloff": round(s_rolloff, 1),
+        "mfccs_vector": [round(float(v), 2) for v in mfccs_mean[0][:15]]  # First 15 for visualization
+    }
+    
+    return mfccs_scaled, t_norm, telemetry
 
-    if os.path.exists(lstm_model_path):
-        try:
-            from tensorflow import keras
-
-            print("Loading saved LSTM model...")
-            lstm_model = keras.models.load_model(lstm_model_path)
-            print("LSTM model loaded!")
-        except Exception as e:
-            print(f"Notice: Could not load LSTM model ({e}). SVM model is active.")
-            lstm_model = None
-
-def _extract_lstm_features(y, sr):
-    """Return a fixed-length MFCC sequence for the LSTM model."""
-    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40).T
-    if mfccs.shape[0] < LSTM_MFCC_FRAMES:
-        mfccs = np.pad(
-            mfccs,
-            ((0, LSTM_MFCC_FRAMES - mfccs.shape[0]), (0, 0)),
-            mode="constant",
-        )
-    else:
-        mfccs = mfccs[:LSTM_MFCC_FRAMES]
-
-    # Normalize each clip consistently with the training script.
-    mfccs = (mfccs - mfccs.mean()) / (mfccs.std() + 1e-8)
-    return mfccs[np.newaxis, ...]
-
-
-def predict_audio(file_path, model_name="svm"):
-    """Extract features from audio file and predict class"""
-    # Load audio
-    y, sr = librosa.load(file_path, duration=4.0)
-
-    if model_name == "lstm":
-        if lstm_model is None:
-            raise RuntimeError(
-                "The LSTM model is currently unavailable (requires trained models/lstm_model.keras and TensorFlow). "
-                "Please select 'SVM (RBF Kernel)' to classify your audio."
-            )
-        proba = lstm_model.predict(_extract_lstm_features(y, sr), verbose=0)[0]
-        model_label = "LSTM"
-    elif model_name == "svm":
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-        mfccs_mean = np.mean(mfccs, axis=1).reshape(1, -1)
-        mfccs_scaled = scaler.transform(mfccs_mean)
+def _predict_single_model(model_key, mfccs_scaled, t_mel_tensor):
+    """Predict probabilities and measure latency for a single model."""
+    start_t = time.perf_counter()
+    
+    if model_key == "svm":
         proba = svm_model.predict_proba(mfccs_scaled)[0]
-        model_label = "SVM (RBF Kernel)"
+    elif model_key == "rf":
+        proba = rf_model.predict_proba(mfccs_scaled)[0]
+    elif model_key == "lr":
+        proba = lr_model.predict_proba(mfccs_scaled)[0]
+    elif model_key == "cnn":
+        with torch.no_grad():
+            proba = cnn_model(t_mel_tensor)[0].numpy()
+    elif model_key == "ensemble":
+        p_svm = svm_model.predict_proba(mfccs_scaled)[0]
+        p_rf = rf_model.predict_proba(mfccs_scaled)[0]
+        with torch.no_grad():
+            p_cnn = cnn_model(t_mel_tensor)[0].numpy()
+        proba = (p_svm * 0.35 + p_rf * 0.35 + p_cnn * 0.30)
     else:
-        raise ValueError("Unsupported model. Choose 'svm' or 'lstm'.")
+        raise ValueError(f"Unknown model: {model_key}")
+        
+    latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
+    return proba, latency_ms
 
-    pred_idx = np.argmax(proba)
-    pred_class = class_names[pred_idx]
-
-    # Top 3
-    top3_idx = np.argsort(proba)[::-1][:3]
-    top3 = [
-        {
-            "class": class_names[i].replace("_", " ").title(),
-            "raw": class_names[i],
-            "emoji": CLASS_EMOJIS.get(class_names[i], "🔊"),
-            "confidence": round(proba[i] * 100, 1)
-        }
-        for i in top3_idx
-    ]
-
+def predict_audio(file_path, model_name="svm", snr=None):
+    """Main inference entrypoint with SNR robustness & multi-model support."""
+    y, sr = librosa.load(file_path, duration=4.0)
+    
+    # Inject synthetic noise if requested
+    y, simulated_snr = inject_noise(y, snr)
+    
+    # Extract features
+    mfccs_scaled, t_mel, telemetry = extract_features(y, sr)
+    
     # Generate visualization
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4), facecolor="#1e293b")
     for ax in [ax1, ax2]:
@@ -160,32 +218,116 @@ def predict_audio(file_path, model_name="svm"):
             spine.set_edgecolor("#334155")
 
     librosa.display.waveshow(y, sr=sr, ax=ax1, color="#6366f1")
-    ax1.set_title("Waveform", color="#e2e8f0", fontsize=10)
+    title_suffix = f" (Simulated SNR: {simulated_snr} dB)" if simulated_snr is not None else ""
+    ax1.set_title(f"Acoustic Waveform{title_suffix}", color="#e2e8f0", fontsize=10)
     ax1.set_xlabel("")
 
     mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=64)
     mel_db = librosa.power_to_db(mel, ref=np.max)
-    librosa.display.specshow(mel_db, sr=sr, x_axis="time",
-                             y_axis="mel", ax=ax2, cmap="magma")
+    librosa.display.specshow(mel_db, sr=sr, x_axis="time", y_axis="mel", ax=ax2, cmap="magma")
     ax2.set_title("Mel Spectrogram", color="#e2e8f0", fontsize=10)
 
     plt.tight_layout()
     buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=100,
-                bbox_inches="tight", facecolor="#1e293b")
+    plt.savefig(buf, format="png", dpi=100, bbox_inches="tight", facecolor="#1e293b")
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode("utf-8")
     plt.close()
-
+    
+    model_name = model_name.lower()
+    
+    # Model Arena Mode: run all models
+    if model_name == "all":
+        arena_results = []
+        model_keys = ["svm", "rf", "lr", "cnn", "ensemble"]
+        for key in model_keys:
+            proba, lat = _predict_single_model(key, mfccs_scaled, t_mel)
+            pred_idx = np.argmax(proba)
+            pred_c = class_names[pred_idx]
+            arena_results.append({
+                "key": key,
+                "name": MODEL_DISPLAY_NAMES[key],
+                "prediction": pred_c.replace("_", " ").title(),
+                "raw_class": pred_c,
+                "emoji": CLASS_EMOJIS.get(pred_c, "🔊"),
+                "confidence": round(float(proba[pred_idx]) * 100, 1),
+                "latency_ms": lat
+            })
+            
+        # Consensus analysis
+        preds = [r["raw_class"] for r in arena_results]
+        unique_p, counts = np.unique(preds, return_counts=True)
+        majority_idx = np.argmax(counts)
+        consensus_class = unique_p[majority_idx]
+        consensus_agreement = f"{counts[majority_idx]} of {len(arena_results)} models agree"
+        
+        # Primary result defaults to ensemble
+        primary_proba, p_lat = _predict_single_model("ensemble", mfccs_scaled, t_mel)
+        pred_idx = np.argmax(primary_proba)
+        pred_class = class_names[pred_idx]
+        
+        top3_idx = np.argsort(primary_proba)[::-1][:3]
+        top3 = [
+            {
+                "class": class_names[i].replace("_", " ").title(),
+                "raw": class_names[i],
+                "emoji": CLASS_EMOJIS.get(class_names[i], "🔊"),
+                "confidence": round(float(primary_proba[i]) * 100, 1)
+            }
+            for i in top3_idx
+        ]
+        
+        return {
+            "prediction": pred_class.replace("_", " ").title(),
+            "raw": pred_class,
+            "emoji": CLASS_EMOJIS.get(pred_class, "🔊"),
+            "description": CLASS_DESCRIPTIONS.get(pred_class, ""),
+            "confidence": round(float(primary_proba[pred_idx]) * 100, 1),
+            "top3": top3,
+            "waveform": img_b64,
+            "duration": round(len(y) / sr, 2),
+            "sample_rate": sr,
+            "model": "Model Arena (Multi-Model Comparison)",
+            "telemetry": telemetry,
+            "simulated_snr": simulated_snr,
+            "arena": arena_results,
+            "consensus": {
+                "class": consensus_class.replace("_", " ").title(),
+                "agreement": consensus_agreement
+            }
+        }
+        
+    # Single Model Mode
+    target_key = model_name if model_name in MODEL_DISPLAY_NAMES else "svm"
+    proba, latency_ms = _predict_single_model(target_key, mfccs_scaled, t_mel)
+    
+    pred_idx = np.argmax(proba)
+    pred_class = class_names[pred_idx]
+    
+    top3_idx = np.argsort(proba)[::-1][:3]
+    top3 = [
+        {
+            "class": class_names[i].replace("_", " ").title(),
+            "raw": class_names[i],
+            "emoji": CLASS_EMOJIS.get(class_names[i], "🔊"),
+            "confidence": round(float(proba[i]) * 100, 1)
+        }
+        for i in top3_idx
+    ]
+    
     return {
         "prediction": pred_class.replace("_", " ").title(),
         "raw": pred_class,
         "emoji": CLASS_EMOJIS.get(pred_class, "🔊"),
         "description": CLASS_DESCRIPTIONS.get(pred_class, ""),
-        "confidence": round(proba[pred_idx] * 100, 1),
+        "confidence": round(float(proba[pred_idx]) * 100, 1),
         "top3": top3,
         "waveform": img_b64,
         "duration": round(len(y) / sr, 2),
         "sample_rate": sr,
-        "model": model_label
+        "model": MODEL_DISPLAY_NAMES.get(target_key, target_key.upper()),
+        "latency_ms": latency_ms,
+        "telemetry": telemetry,
+        "simulated_snr": simulated_snr,
+        "arena": None
     }
