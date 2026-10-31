@@ -30,11 +30,14 @@ requirements.txt        Python dependencies
 
 ## Setup
 
-Python 3.10 or newer is recommended.
+Python 3.10 through 3.12 is recommended for the web application. TensorFlow is
+only needed when running the optional notebook training scripts; it is not
+required for the Flask application.
 
 ```bash
-git clone https://github.com/sanikasonavane25-blip/Noise_Classification_System.git
-cd Noise_Classification_System
+git clone https://github.com/sam-rudddhi/Noise_Classification.git
+cd Noise_Classification
+git checkout feature/noise-classification
 python -m venv .venv
 ```
 
@@ -77,9 +80,8 @@ python -m compileall .
 The included `test.py` is a small environment sanity check and can be run
 with `python test.py`.
 
-The application also loads the saved SVM artifacts from `models/`. If they are
-missing, `model_utils.py` trains a new model from `features_mfcc.csv` and saves
-the generated artifacts.
+The application loads the saved preprocessing and model artifacts from
+`models/`. Keep this directory intact when cloning the repository.
 
 ## Notes
 
