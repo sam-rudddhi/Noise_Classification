@@ -1,0 +1,7 @@
+UrbanSound8K/
+__pycache__/
+*.pyc
+temp/
+*.log
+.venv/
+old_repo/
