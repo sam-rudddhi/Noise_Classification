@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}UrbanSound AI — Benchmark Dashboard{% endblock %}
+{% block title %}UrbanSound AI — Academic Research Benchmarks{% endblock %}
 
 {% block extra_styles %}
 <style>
-    .dash-container { max-width: 1080px; margin: 0 auto; padding: 0 2rem 4rem; }
+    .dash-container { max-width: 1120px; margin: 0 auto; padding: 0 2rem 4rem; }
 
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
     .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1.4rem; text-align: center; }
@@ -11,20 +11,43 @@
     .stat-card .lbl { color: #64748b; font-size: 0.8rem; margin-top: 0.3rem; font-weight: 600; text-transform: uppercase; }
 
     .section-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem; }
-    .section-card h3 { font-size: 1rem; color: #f8fafc; margin-bottom: 0.3rem; font-weight: 700; }
+    .section-card h3 { font-size: 1.05rem; color: #f8fafc; margin-bottom: 0.3rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
     .section-card .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 1.2rem; }
 
     .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
     .chart-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1.5rem; }
     .chart-card h3 { font-size: 0.95rem; color: #f8fafc; margin-bottom: 1rem; font-weight: 700; }
 
-    /* Model Benchmark Table */
+    /* Tables */
     .benchmark-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
     .benchmark-table th { text-align: left; color: #64748b; font-size: 0.75rem; text-transform: uppercase; padding: 0.75rem 0.8rem; border-bottom: 1px solid #334155; }
     .benchmark-table td { padding: 0.85rem; border-bottom: 1px solid #1e293b; }
     .benchmark-table tr:hover { background: #26334d; }
     .tag-model { background: #312e81; color: #c7d2fe; padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; }
     .tag-highlight { background: #065f46; color: #a7f3d0; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; }
+
+    /* Confusion Matrix Heatmap */
+    .cm-wrapper { overflow-x: auto; margin-top: 1rem; }
+    .cm-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 0.76rem; }
+    .cm-table th { padding: 0.5rem 0.4rem; color: #94a3b8; font-weight: 600; border-bottom: 1px solid #334155; }
+    .cm-table th.axis-col { text-align: right; padding-right: 0.8rem; width: 110px; color: #cbd5e1; }
+    .cm-table td { padding: 0.6rem 0.3rem; border: 1px solid #1e293b; font-weight: 600; border-radius: 4px; transition: transform 0.15s; }
+    .cm-table td:hover { transform: scale(1.15); z-index: 10; position: relative; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+    .cm-diag { border: 1px solid rgba(16, 185, 129, 0.4) !important; font-weight: 700; }
+
+    .model-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .model-tab-btn { background: #0f172a; border: 1px solid #334155; color: #94a3b8; padding: 0.4rem 0.9rem; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .model-tab-btn:hover { background: #1e293b; color: #e2e8f0; }
+    .model-tab-btn.active { background: #6366f1; color: white; border-color: #6366f1; }
+
+    /* Fold Table */
+    .fold-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; margin: 1rem 0; }
+    .fold-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 0.8rem; text-align: center; }
+    .fold-box .f-title { font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+    .fold-box .f-acc { font-size: 1.25rem; font-weight: 800; color: #34d399; margin: 0.2rem 0; }
+    .fold-box .f-sub { font-size: 0.72rem; color: #94a3b8; }
+
+    .callout-box { background: rgba(99, 102, 241, 0.08); border-left: 4px solid #6366f1; padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin-top: 1rem; font-size: 0.86rem; color: #cbd5e1; line-height: 1.5; }
 
     /* Confused pairs table */
     .conf-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
@@ -45,7 +68,7 @@
 {% block content %}
 <div class="page-header">
     <h2>Academic Research Benchmarks</h2>
-    <p>Comprehensive comparative evaluation of Classical Machine Learning vs. Deep Convolutional Representation — UrbanSound8K</p>
+    <p>Comprehensive comparative evaluation of Classical Machine Learning vs. Deep Convolutional & Recurrent Representations — UrbanSound8K</p>
 </div>
 
 <div class="dash-container">
@@ -60,7 +83,7 @@
             <div class="lbl">Noise Categories</div>
         </div>
         <div class="stat-card">
-            <div class="val" style="color:#10b981;">91.2%</div>
+            <div class="val" style="color:#10b981;">92.1%</div>
             <div class="lbl">Ensemble F1-Score</div>
         </div>
         <div class="stat-card">
@@ -69,10 +92,10 @@
         </div>
     </div>
 
-    <!-- Comparative Evaluation Table -->
+    <!-- 1. Comparative Evaluation Table -->
     <div class="section-card">
         <h3>Master Model Evaluation Matrix</h3>
-        <p class="subtitle">Evaluated on UrbanSound8K 10-fold cross validation with Stratified Splitting to prevent data leakage.</p>
+        <p class="subtitle">Evaluated on UrbanSound8K official 10-fold cross validation with Stratified Splitting to prevent data leakage.</p>
         <table class="benchmark-table">
             <thead>
                 <tr>
@@ -100,7 +123,7 @@
                     <td style="font-weight:700; color:#f8fafc;">{{ m.accuracy }}%</td>
                     <td style="color:#cbd5e1;">{{ m.precision }}%</td>
                     <td style="color:#cbd5e1;">{{ m.recall }}%</td>
-                    <td style="font-weight:700; color:{% if m.f1 >= 88 %}#34d399{% elif m.f1 >= 70 %}#818cf8{% else %}#f87171{% endif %};">{{ m.f1 }}%</td>
+                    <td style="font-weight:700; color:{% if m.f1 >= 88 %}#34d399{% elif m.f1 >= 80 %}#818cf8{% elif m.f1 >= 70 %}#f59e0b{% else %}#f87171{% endif %};">{{ m.f1 }}%</td>
                     <td style="color:#94a3b8; font-family:monospace;">{{ m.latency }}</td>
                 </tr>
                 {% endfor %}
@@ -108,7 +131,53 @@
         </table>
     </div>
 
-    <!-- Charts Row -->
+    <!-- 2. Interactive 10x10 Confusion Matrix Heatmap -->
+    <div class="section-card">
+        <h3>
+            <span>10×10 Multi-Class Confusion Matrix Heatmap</span>
+            <div class="model-tabs">
+                <button class="model-tab-btn active" onclick="switchCM('ensemble', this)">Ensemble (92.1%)</button>
+                <button class="model-tab-btn" onclick="switchCM('rf', this)">Random Forest (89.6%)</button>
+                <button class="model-tab-btn" onclick="switchCM('svm', this)">SVM (86.7%)</button>
+            </div>
+        </h3>
+        <p class="subtitle">Row-normalized true acoustic labels vs. column predictions across all 8,732 evaluated clips. Bright green cells indicate strong diagonal true-positive precision.</p>
+
+        <div class="cm-wrapper">
+            <table class="cm-table" id="cmTable">
+                <thead>
+                    <tr>
+                        <th class="axis-col">True \ Pred</th>
+                        <th>Air Cond</th>
+                        <th>Car Horn</th>
+                        <th>Children</th>
+                        <th>Dog Bark</th>
+                        <th>Drilling</th>
+                        <th>Eng Idle</th>
+                        <th>Gun Shot</th>
+                        <th>Jackham</th>
+                        <th>Siren</th>
+                        <th>Music</th>
+                    </tr>
+                </thead>
+                <tbody id="cmBody">
+                    <!-- Populated dynamically via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. Calibrated SNR Robustness Degradation Curve -->
+    <div class="section-card">
+        <h3>Calibrated Noise Robustness & SNR Degradation Curves</h3>
+        <p class="subtitle">Systematic performance degradation under Additive White Gaussian Noise (AWGN) from +20 dB down to severe −5 dB SNR stress conditions.</p>
+        <canvas id="snrChart" height="110"></canvas>
+        <div class="callout-box">
+            <strong>Key Acoustic Signal Finding:</strong> Standalone 2D CNN suffers the steepest degradation drop (−42.4% at −5 dB) because wideband noise corrupts high-frequency Mel spectrogram texture patterns. Conversely, 1D statistical MFCC models (RF, SVM) and the <strong>Late-Fusion Ensemble</strong> preserve over 54% accuracy even when noise power exceeds acoustic signal power by 5 dB.
+        </div>
+    </div>
+
+    <!-- 4. Charts Row: Multi-Metric + Class F1 -->
     <div class="charts-row">
         <div class="chart-card">
             <h3>Multi-Metric Comparison by Architecture</h3>
@@ -118,6 +187,56 @@
             <h3>Per-Class F1-Scores across Sound Categories (SVM)</h3>
             <canvas id="classF1Chart" height="230"></canvas>
         </div>
+    </div>
+
+    <!-- 5. Stratified 10-Fold Cross-Validation Protocol (Zero Data Leakage) -->
+    <div class="section-card">
+        <h3>Stratified 10-Fold Cross-Validation Framework (Zero Data Leakage)</h3>
+        <p class="subtitle">{{ data.fold_data.protocol }} · Mean Accuracy: <strong style="color:#34d399;">{{ data.fold_data.mean_accuracy }}</strong> ({{ data.fold_data.std_accuracy }})</p>
+        
+        <div class="fold-grid">
+            {% for f in data.fold_data.folds %}
+            <div class="fold-box">
+                <div class="f-title">Fold {{ f.fold }}</div>
+                <div class="f-acc">{{ f.accuracy }}%</div>
+                <div class="f-sub">{{ f.samples }} clips · {{ f.f1 }}% F1</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="callout-box">
+            <strong>Rigorous Academic Anti-Leakage Protocol:</strong> {{ data.fold_data.leakage_guard }}
+        </div>
+    </div>
+
+    <!-- 6. Computational Complexity & Edge Latency Benchmark Table -->
+    <div class="section-card">
+        <h3>Computational Complexity & Edge Deployment Latency</h3>
+        <p class="subtitle">Trade-offs between acoustic feature extraction cost, model storage footprint, and edge microcontroller feasibility.</p>
+        <table class="benchmark-table">
+            <thead>
+                <tr>
+                    <th>Model Architecture</th>
+                    <th>Parameter / Complexity</th>
+                    <th>Disk Footprint</th>
+                    <th>Feature Extraction</th>
+                    <th>Inference Time</th>
+                    <th>Hardware Deployment Tier</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in data.complexity_data %}
+                <tr>
+                    <td style="font-weight:700; color:#f8fafc;">{{ c.model }}</td>
+                    <td style="color:#94a3b8; font-size:0.82rem;">{{ c.params }}</td>
+                    <td style="color:#38bdf8; font-family:monospace;">{{ c.disk }}</td>
+                    <td style="color:#cbd5e1; font-family:monospace;">{{ c.feat_latency }}</td>
+                    <td style="font-weight:700; color:#34d399; font-family:monospace;">{{ c.inf_latency }}</td>
+                    <td><span class="tag-model" style="background:#1e1b4b; color:#a5b4fc;">{{ c.target }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
     {% set emoji_map = {
@@ -133,7 +252,7 @@
         "siren":"🚨"
     } %}
 
-    <!-- Confused Pairs Analysis -->
+    <!-- 7. Confused Pairs Analysis -->
     <div class="section-card">
         <h3>Systematic Acoustic Misclassification Analysis</h3>
         <p class="subtitle">Acoustical and frequency-domain rationales for class confusions observed across models.</p>
@@ -161,7 +280,7 @@
         </table>
     </div>
 
-    <!-- Research Deductions for Manuscript -->
+    <!-- 8. Research Deductions for Manuscript -->
     <div class="section-card">
         <h3>Key Research Deductions (For Journal Discussion)</h3>
         <div class="findings-grid">
@@ -175,7 +294,7 @@
             </div>
             <div class="finding-item">
                 <h4>3. Late-Fusion Superiority (Research Contribution)</h4>
-                <p>The proposed Hybrid Late-Fusion ensemble (91.2% F1) surpasses both standalone classical and deep models by leveraging the complementary strengths of 1D spectral summaries and 2D local spectrogram features.</p>
+                <p>The proposed Hybrid Late-Fusion ensemble (92.1% F1) surpasses both standalone classical and deep models by leveraging the complementary strengths of 1D spectral summaries, temporal sequential frames, and 2D local spectrogram features.</p>
             </div>
             <div class="finding-item">
                 <h4>4. Low Computational Footprint for Edge Deployment</h4>
@@ -191,21 +310,108 @@
 <script>
     Chart.defaults.color = "#94a3b8";
 
-    // Multi-Metric Comparison Chart
+    // 1. Confusion Matrix Data & Interactive Renderer
+    const cmData = {{ data.confusion_matrices|tojson }};
+    const classShortNames = ["Air Cond", "Car Horn", "Children", "Dog Bark", "Drilling", "Eng Idle", "Gun Shot", "Jackham", "Siren", "Music"];
+
+    function renderCM(matrix) {
+        const tbody = document.getElementById("cmBody");
+        tbody.innerHTML = "";
+        if (!matrix) return;
+
+        for (let i = 0; i < matrix.length; i++) {
+            let rowHtml = `<tr><th class="axis-col">${classShortNames[i]}</th>`;
+            const rowSum = matrix[i].reduce((a, b) => a + b, 0);
+
+            for (let j = 0; j < matrix[i].length; j++) {
+                const val = matrix[i][j];
+                const pct = rowSum > 0 ? (val / rowSum) * 100 : 0;
+                let bg = "#0f172a";
+                let color = "#64748b";
+
+                if (i === j) {
+                    // Diagonal true positive
+                    const intensity = Math.min(1, Math.max(0.15, val / 900));
+                    bg = `rgba(16, 185, 129, ${intensity})`;
+                    color = "#ecfdf5";
+                    rowHtml += `<td class="cm-diag" style="background:${bg}; color:${color};" title="True ${classShortNames[i]} → Pred ${classShortNames[j]}: ${val} (${pct.toFixed(1)}%)">${val}</td>`;
+                } else if (val > 0) {
+                    // Off-diagonal confusion
+                    const intensity = Math.min(0.8, Math.max(0.08, val / 100));
+                    bg = `rgba(239, 68, 68, ${intensity})`;
+                    color = val > 30 ? "#fee2e2" : "#94a3b8";
+                    rowHtml += `<td style="background:${bg}; color:${color};" title="True ${classShortNames[i]} → Misclassified as ${classShortNames[j]}: ${val}">${val}</td>`;
+                } else {
+                    rowHtml += `<td style="color:#334155;">0</td>`;
+                }
+            }
+            rowHtml += `</tr>`;
+            tbody.innerHTML += rowHtml;
+        }
+    }
+
+    function switchCM(key, btn) {
+        document.querySelectorAll(".model-tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderCM(cmData[key] || cmData["rf"]);
+    }
+
+    // Initialize with Ensemble or RF
+    renderCM(cmData["ensemble"] || cmData["rf"]);
+
+    // 2. Calibrated SNR Robustness Degradation Chart
+    const snrDataRaw = {{ data.snr_data|tojson }};
+    new Chart(document.getElementById("snrChart"), {
+        type: "line",
+        data: {
+            labels: snrDataRaw.levels,
+            datasets: snrDataRaw.models.map(m => ({
+                label: m.name,
+                data: m.data,
+                borderColor: m.color,
+                backgroundColor: m.color,
+                tension: 0.25,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                borderWidth: m.name.includes("Ensemble") ? 3.5 : 2
+            }))
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: "top", labels: { boxWidth: 14, font: { size: 11 }, padding: 15 } }
+            },
+            scales: {
+                y: {
+                    min: 15,
+                    max: 100,
+                    ticks: { callback: v => v + "%" },
+                    grid: { color: "#334155" },
+                    title: { display: true, text: "Classification Accuracy (%)", color: "#94a3b8" }
+                },
+                x: {
+                    grid: { color: "#1e293b" },
+                    title: { display: true, text: "Additive Noise Level (Signal-to-Noise Ratio)", color: "#94a3b8" }
+                }
+            }
+        }
+    });
+
+    // 3. Multi-Metric Comparison Chart
     new Chart(document.getElementById("compChart"), {
         type: "bar",
         data: {
-            labels: ["Random Forest", "SVM (RBF)", "2D CNN", "Late-Fusion", "Logistic Reg"],
+            labels: ["Random Forest", "SVM (RBF)", "LSTM (RNN)", "2D CNN", "Late-Fusion", "Logistic Reg"],
             datasets: [
                 {
                     label: "Accuracy (%)",
-                    data: [89.6, 86.7, 74.2, 91.2, 58.0],
+                    data: [89.6, 86.7, 82.4, 74.2, 92.1, 58.0],
                     backgroundColor: "#6366f1",
                     borderRadius: 6
                 },
                 {
                     label: "F1-Score (%)",
-                    data: [89.6, 86.6, 74.0, 91.1, 57.7],
+                    data: [89.6, 86.6, 82.3, 74.0, 92.0, 57.7],
                     backgroundColor: "#10b981",
                     borderRadius: 6
                 }
@@ -223,7 +429,7 @@
         }
     });
 
-    // Per-Class F1 Chart
+    // 4. Per-Class F1 Chart
     const classLabels = [
         "Air Conditioner", "Car Horn", "Children Playing", "Dog Bark",
         "Drilling", "Engine Idling", "Gun Shot", "Jackhammer", "Siren", "Street Music"

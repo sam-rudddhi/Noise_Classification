@@ -103,28 +103,34 @@
                 <div class="flow-node" style="border-color:#c084fc;">Acoustic Preprocessing<br/><span style="font-size:0.75rem; color:#94a3b8;">STFT & Mel Filterbank</span></div>
             </div>
 
-            <div style="color:#6366f1; font-size:1.6rem; margin:0.4rem 0;">⬇ Dual Feature Extraction Pipeline ⬇</div>
+            <div style="color:#6366f1; font-size:1.6rem; margin:0.4rem 0;">⬇ Tri-Modal Acoustic Feature Extraction Pipeline ⬇</div>
 
             <div class="flow-row">
-                <div class="flow-node" style="border-color:#10b981; max-width:320px;">
+                <div class="flow-node" style="border-color:#10b981; max-width:280px;">
                     <strong>1D Statistical Representation</strong><br/>
-                    <span style="font-size:0.78rem; color:#94a3b8;">40 MFCC Coefficients (Mean & Variance) + ZCR + RMS Energy</span>
+                    <span style="font-size:0.78rem; color:#94a3b8;">40 MFCC Means + ZCR + RMS Energy</span>
                     <div style="margin-top:6px; color:#34d399; font-size:0.8rem;">➔ Evaluated with: SVM, RF, LR</div>
                 </div>
-                <div style="font-size:1.5rem; color:#64748b;">vs</div>
-                <div class="flow-node" style="border-color:#ec4899; max-width:320px;">
+                <div class="flow-node" style="border-color:#ec4899; max-width:280px;">
                     <strong>2D Time-Frequency Representation</strong><br/>
-                    <span style="font-size:0.78rem; color:#94a3b8;">128x128 Log-Mel Spectrogram (dB Scale Normalized)</span>
+                    <span style="font-size:0.78rem; color:#94a3b8;">128×128 Log-Mel Spectrogram (dB-scaled)</span>
                     <div style="margin-top:6px; color:#f472b6; font-size:0.8rem;">➔ Evaluated with: 2D CNN</div>
+                </div>
+                <div class="flow-node" style="border-color:#8b5cf6; max-width:280px;">
+                    <strong>Temporal Sequence Representation</strong><br/>
+                    <span style="font-size:0.78rem; color:#94a3b8;">Time-ordered 40 MFCC Sequential Vectors</span>
+                    <div style="margin-top:6px; color:#a78bfa; font-size:0.8rem;">➔ Evaluated with: LSTM</div>
                 </div>
             </div>
 
             <div style="color:#6366f1; font-size:1.6rem; margin:0.4rem 0;">⬇ Classification & Consensus ⬇</div>
 
             <div class="flow-row">
-                <div class="flow-node" style="border-color:#f59e0b; background:#1e1b4b;">
+                <div class="flow-node" style="border-color:#f59e0b; background:#1e1b4b; max-width:540px;">
                     <strong>Hybrid Late-Fusion Ensemble (Soft Voting)</strong><br/>
-                    <span style="font-size:0.8rem; color:#cbd5e1;">$P_{\text{final}} = 0.35 \cdot P_{\text{SVM}} + 0.35 \cdot P_{\text{RF}} + 0.30 \cdot P_{\text{CNN}}$</span>
+                    <div style="font-size:0.95rem; color:#e2e8f0; margin-top:6px; font-family:'Inter', sans-serif;">
+                        $$P_{\text{final}} = 0.25 \cdot P_{\text{SVM}} + 0.25 \cdot P_{\text{RF}} + 0.25 \cdot P_{\text{CNN}} + 0.25 \cdot P_{\text{LSTM}}$$
+                    </div>
                 </div>
                 <div class="flow-arrow">➔</div>
                 <div class="flow-node" style="border-color:#10b981;">
@@ -139,7 +145,7 @@
     <div class="step-card">
         <span class="step-num">STAGE 1</span>
         <h3>UrbanSound8K Dataset & Acoustic Taxonomy</h3>
-        <p>The UrbanSound8K dataset comprises 8,732 labeled audio excerpts ($\leq 4.0\text{ seconds}$) partitioned across 10 balanced folds. The 10 categories represent urban environmental noise scenarios:</p>
+        <p>The UrbanSound8K dataset comprises 8,732 labeled audio excerpts (≤ 4.0 seconds) partitioned across 10 balanced folds. The 10 categories represent urban environmental noise scenarios:</p>
 
         <div class="class-grid">
             <div class="class-item">
@@ -219,7 +225,7 @@
     <div class="step-card">
         <span class="step-num">STAGE 2</span>
         <h3>Acoustic Preprocessing & Feature Extraction</h3>
-        <p>Acoustic signals are loaded via <code>librosa</code> at a standardized sampling rate of $f_s = 22,050\text{ Hz}$:</p>
+        <p>Acoustic signals are loaded via <code>librosa</code> at a standardized sampling rate of <em>f</em><sub>s</sub> = 22,050 Hz:</p>
 
         <table class="table-spec">
             <thead>
@@ -231,18 +237,18 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>Sampling Rate ($f_s$)</strong></td>
+                    <td><strong>Sampling Rate (<em>f</em><sub>s</sub>)</strong></td>
                     <td>22,050 Hz</td>
                     <td>Satisfies Nyquist criterion up to 11.025 kHz, covering human hearing and critical urban acoustics.</td>
                 </tr>
                 <tr>
                     <td><strong>STFT Window & Hop Size</strong></td>
-                    <td>$N_{\text{fft}} = 2048$, $\text{Hop} = 512$</td>
+                    <td><em>N</em><sub>fft</sub> = 2048, Hop = 512</td>
                     <td>Provides 23 ms time resolution and 10.7 Hz frequency resolution.</td>
                 </tr>
                 <tr>
                     <td><strong>Mel Filterbank</strong></td>
-                    <td>$M = 128$ filters (0 to 11 kHz)</td>
+                    <td><em>M</em> = 128 filters (0 to 11.025 kHz)</td>
                     <td>Non-linear frequency scaling approximating the human cochlear critical band perceptual scale.</td>
                 </tr>
                 <tr>
@@ -259,11 +265,13 @@
         <span class="step-num">STAGE 3</span>
         <h3>Additive Noise Robustness & SNR Simulation Protocol</h3>
         <p>To evaluate model reliability under harsh acoustic interference, calibrated additive white Gaussian noise (AWGN) is injected dynamically according to specified Signal-to-Noise Ratios (SNR):</p>
-        <p style="margin-top:0.5rem; font-family:monospace; background:#0f172a; padding:0.8rem; border-radius:8px; color:#a5b4fc;">
-            $P_{\text{signal}} = \frac{1}{N}\sum_{i=1}^N y_i^2, \quad P_{\text{noise}} = \frac{P_{\text{signal}}}{10^{\text{SNR}_{\text{dB}} / 10}}, \quad y_{\text{noisy}} = y + \mathcal{N}(0, \sqrt{P_{\text{noise}}})$
-        </p>
+        <div style="margin-top:0.8rem; background:#0f172a; border:1px solid #334155; padding:1.2rem; border-radius:10px; text-align:center; overflow-x:auto;">
+            <div style="font-size:1.05rem; color:#e2e8f0; font-family:'Inter', sans-serif;">
+                $$P_{\text{signal}} = \frac{1}{N}\sum_{i=1}^N y_i^2, \qquad P_{\text{noise}} = \frac{P_{\text{signal}}}{10^{\text{SNR}_{\text{dB}} / 10}}, \qquad y_{\text{noisy}} = y + \mathcal{N}(0, \sqrt{P_{\text{noise}}})$$
+            </div>
+        </div>
         <p style="margin-top:0.8rem;">
-            Testing across $+20\text{ dB}$, $+10\text{ dB}$, $0\text{ dB}$, and $-5\text{ dB}$ reveals the breakdown threshold for each acoustic modeling paradigm.
+            Testing across <strong>+20 dB</strong>, <strong>+10 dB</strong>, <strong>0 dB</strong>, and <strong>−5 dB</strong> reveals the breakdown threshold for each acoustic modeling paradigm.
         </p>
     </div>
 
